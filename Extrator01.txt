@@ -1,0 +1,53 @@
+import pandas as pd
+import os
+
+pasta_planilhas = "Adicione o Caminho Aqui"
+arquivos = [arquivo for arquivo in os.listdir(pasta_planilhas) if arquivo.endswith('.xlsx')]
+
+telefones_nao_respondidos = []
+links_nao_respondidos = []
+
+# Itera por cada arquivo Excel na pasta
+for arquivo in arquivos:
+    caminho = os.path.join(pasta_planilhas, arquivo)
+
+    try:
+        planilha = pd.ExcelFile(caminho)
+                for aba_nome in planilha.sheet_names:
+            aba = planilha.parse(aba_nome)
+
+            print(f"Analisando a aba '{aba_nome}' do arquivo '{arquivo}'...")
+            print(f"Colunas encontradas: {aba.columns.tolist()}")
+            print(aba.head())  # Exibe as primeiras linhas para visualização
+
+            # Identifica colunas por tipo de dado
+            col_telefone = None
+            col_resposta = None
+            col_link = None
+
+            for coluna in aba.columns:
+                col_amostra = aba[coluna].astype(str).dropna().head(10).str.lower()
+
+                if col_telefone is None and col_amostra.str.contains('telefone|contato').any():
+                    col_telefone = coluna
+                elif col_resposta is None and col_amostra.str.contains('/').any():
+                    col_resposta = coluna
+                elif col_link is None and col_amostra.str.contains('http|www').any():
+                    col_link = coluna
+
+                 if col_telefone and col_resposta and col_link:
+                
+                filtro_nao_respondido = aba[aba[col_resposta].str.strip() == '/']
+                for _, linha in filtro_nao_respondido.iterrows():
+                    telefones_nao_respondidos.append(linha[col_telefone])
+                    links_nao_respondidos.append(linha[col_link])
+            else:
+                print(f"Aba '{aba_nome}' no arquivo '{arquivo}' não possui todas as colunas necessárias. "
+                      f"Telefone: {col_telefone}, Resposta: {col_resposta}, Link: {col_link}")
+
+    except Exception as e:
+        print(f"Erro ao processar o arquivo '{arquivo}': {e}")
+
+print("\nTelefones de quem não respondeu e seus links correspondentes:")
+for telefone, link in zip(telefones_nao_respondidos, links_nao_respondidos):
+    print(f"Telefone: {telefone}, Link: {link}")
